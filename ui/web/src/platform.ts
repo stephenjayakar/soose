@@ -153,10 +153,12 @@ const electronShim = {
   }),
 
   // File operations via goosed API (server-side)
-  directoryChooser: async (): Promise<{ dirPath?: string }> => {
+  directoryChooser: async (): Promise<{ canceled: boolean; filePaths: string[] }> => {
     const dir = prompt('Enter server-side directory path:', getSooseConfig().workingDir);
-    if (dir) return { dirPath: dir };
-    return {};
+    if (dir && dir.trim()) {
+      return { canceled: false, filePaths: [dir.trim()] };
+    }
+    return { canceled: true, filePaths: [] };
   },
   listFiles: async (dirPath: string, _extension?: string): Promise<string[]> => {
     // Use the goosed developer shell to list files on the server

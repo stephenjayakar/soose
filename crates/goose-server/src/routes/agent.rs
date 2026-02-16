@@ -36,6 +36,21 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn};
 
+/// Expand ~ or ~/ at the start of a path to the user's home directory.
+/// This allows remote clients to send paths like "~/projects" which get
+/// resolved on the server side.
+fn expand_tilde(path: &str) -> String {
+    if path == "~" || path.starts_with("~/") {
+        if let Some(home) = std::env::var("HOME").ok().or_else(|| std::env::var("USERPROFILE").ok()) {
+            if path == "~" {
+                return home;
+            }
+            return format!("{}{}", home, &path[1..]);
+        }
+    }
+    path.to_string()
+}
+
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct UpdateFromSessionRequest {
     session_id: String,
@@ -216,6 +231,7 @@ async fn start_agent(
 
     let manager = state.session_manager();
 
+    let working_dir = expand_tilde(&working_dir);
     let mut session = manager
         .create_session(PathBuf::from(&working_dir), name, SessionType::User)
         .await
@@ -797,7 +813,7 @@ async fn update_working_dir(
     Json(payload): Json<UpdateWorkingDirRequest>,
 ) -> Result<StatusCode, ErrorResponse> {
     let session_id = payload.session_id.clone();
-    let working_dir = payload.working_dir.trim();
+    let working_dir = expand_tilde(payload.working_dir.trim());
 
     if working_dir.is_empty() {
         return Err(ErrorResponse {
@@ -806,7 +822,7 @@ async fn update_working_dir(
         });
     }
 
-    let path = PathBuf::from(working_dir);
+    let path = PathBuf::from(&working_dir);
     if !path.exists() || !path.is_dir() {
         return Err(ErrorResponse {
             message: "Invalid directory path".into(),
