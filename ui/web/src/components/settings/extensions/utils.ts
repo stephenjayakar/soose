@@ -59,7 +59,7 @@ export function extensionToFormData(extension: FixedExtensionEntry): ExtensionFo
   const hasEnvs = extension.type === 'streamable_http' || extension.type === 'stdio';
 
   // Handle both envs (legacy) and env_keys (new secrets)
-  let envVars = [];
+  let envVars: Array<{key: string; value: string; isEdited: boolean}> = [];
 
   // Add legacy envs with their values
   if (hasEnvs && extension.envs) {
@@ -84,7 +84,7 @@ export function extensionToFormData(extension: FixedExtensionEntry): ExtensionFo
   }
 
   // Handle headers for streamable_http
-  let headers = [];
+  let headers: Array<{key: string; value: string; isEdited: boolean}> = [];
   if (extension.type === 'streamable_http' && 'headers' in extension && extension.headers) {
     headers.push(
       ...Object.entries(extension.headers).map(([key, value]) => ({

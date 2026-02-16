@@ -361,10 +361,10 @@ export function useChatStream({
 
       const timeSinceLastInteraction = Date.now() - lastInteractionTimeRef.current;
       if (!error && timeSinceLastInteraction > 60000) {
-        window.electron.showNotification({
-          title: 'goose finished the task.',
-          body: 'Click here to expand.',
-        });
+        window.electron.showNotification(
+          'goose finished the task.',
+          'Click here to expand.',
+        );
       }
 
       const isNewSession = sessionId && sessionId.match(/^\d{8}_\d{6}$/);
@@ -585,7 +585,7 @@ export function useChatStream({
       abortControllerRef.current = new AbortController();
 
       try {
-        const { stream } = await reply({
+        const { stream } = (await reply({
           body: {
             session_id: sessionId,
             user_message: newMessage,
@@ -593,7 +593,7 @@ export function useChatStream({
           },
           throwOnError: true,
           signal: abortControllerRef.current.signal,
-        });
+        })) as any;
 
         await streamFromResponse(stream, currentMessages, dispatch, onFinish, sessionId);
       } catch (error) {
@@ -627,14 +627,14 @@ export function useChatStream({
       abortControllerRef.current = new AbortController();
 
       try {
-        const { stream } = await reply({
+        const { stream } = (await reply({
           body: {
             session_id: sessionId,
             user_message: responseMessage,
           },
           throwOnError: true,
           signal: abortControllerRef.current.signal,
-        });
+        })) as any;
 
         await streamFromResponse(stream, currentMessages, dispatch, onFinish, sessionId);
       } catch (error) {
@@ -766,7 +766,7 @@ export function useChatStream({
             abortControllerRef.current = new AbortController();
 
             try {
-              const { stream } = await reply({
+              const { stream } = (await reply({
                 body: {
                   session_id: targetSessionId,
                   user_message: updatedUserMessage,
@@ -774,7 +774,7 @@ export function useChatStream({
                 },
                 throwOnError: true,
                 signal: abortControllerRef.current.signal,
-              });
+              })) as any;
 
               await streamFromResponse(stream, messagesForUI, dispatch, onFinish, targetSessionId);
             } catch (error) {

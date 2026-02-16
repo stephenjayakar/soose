@@ -108,10 +108,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
         try {
           const fileResponse = await window.electron.readFile(filePath);
-          if (!fileResponse.found || fileResponse.error) {
+          if (!fileResponse) {
             throw new Error('Failed to read the selected file.');
           }
-          const recipe = await parseRecipeFromFile(fileResponse.file);
+          const recipe = await parseRecipeFromFile(fileResponse.content);
           if (!recipe) {
             throw new Error('Failed to parse recipe from file.');
           }

@@ -1,11 +1,7 @@
-// Browser-compatible settings types
-export interface KeyboardShortcuts {
-  newChat: string;
-}
+import { defaultKeyboardShortcuts, type KeyboardShortcuts } from './keyboardShortcuts';
 
-export const defaultKeyboardShortcuts: KeyboardShortcuts = {
-  newChat: 'CommandOrControl+N',
-};
+export type { KeyboardShortcuts };
+export { defaultKeyboardShortcuts };
 
 export interface ExternalGoosedConfig {
   enabled: boolean;

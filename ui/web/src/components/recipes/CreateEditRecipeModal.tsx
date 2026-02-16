@@ -132,7 +132,7 @@ export default function CreateEditRecipeModal({
     });
 
     // Parse response schema if provided
-    let responseConfig = undefined;
+    let responseConfig: { json_schema: unknown } | undefined = undefined;
     if (jsonSchema && jsonSchema.trim()) {
       try {
         const parsedSchema = JSON.parse(jsonSchema);

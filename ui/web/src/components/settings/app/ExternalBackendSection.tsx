@@ -29,7 +29,7 @@ export default function ExternalBackendSection() {
   useEffect(() => {
     const loadSettings = async () => {
       const settings = await window.electron.getSettings();
-      setConfig(parseConfig(settings.externalGoosed));
+      setConfig(parseConfig(settings.externalGoosed as ExternalGoosedConfig | undefined));
     };
     loadSettings();
   }, []);

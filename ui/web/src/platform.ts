@@ -207,13 +207,13 @@ const electronShim = {
   getAllowedExtensions: async () => [],
 
   // Desktop-only settings (no-ops in browser)
-  setMenuBarIcon: async (_show: boolean) => {},
+  setMenuBarIcon: async (_show: boolean) => true,
   getMenuBarIconState: async () => true,
-  setDockIcon: async (_show: boolean) => {},
+  setDockIcon: async (_show: boolean) => true,
   getDockIconState: async () => true,
-  setWakelock: async (_enable: boolean) => {},
+  setWakelock: async (_enable: boolean) => true,
   getWakelockState: async () => false,
-  setSpellcheck: async (_enable: boolean) => {},
+  setSpellcheck: async (_enable: boolean) => true,
   getSpellcheckState: async () => true,
   openNotificationsSettings: async () => {},
 

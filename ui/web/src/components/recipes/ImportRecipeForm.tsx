@@ -126,6 +126,7 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
   };
 
   const handleRecipeUploadChange = async (file: File | undefined) => {
+    // @ts-expect-error - TanStack Form deep type instantiation
     importRecipeForm.setFieldValue('recipeUploadFile', file || null);
 
     if (file) {
@@ -161,7 +162,7 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                 {(values) => (
                   <>
                     <importRecipeForm.Field name="deeplink">
-                      {(field) => {
+                      {(field: any) => {
                         const isDisabled = values.recipeUploadFile !== null;
 
                         return (
@@ -179,7 +180,7 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                               onBlur={field.handleBlur}
                               disabled={isDisabled}
                               className={`w-full p-3 border rounded-lg bg-background-default text-text-default focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-                                field.state.meta.errors.length > 0
+                                (field.state.meta.errors as any[]).length > 0
                                   ? 'border-red-500'
                                   : 'border-border-default'
                               } ${isDisabled ? 'cursor-not-allowed bg-gray-40 text-gray-300' : ''}`}
@@ -192,12 +193,12 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                             >
                               Paste a recipe deeplink starting with "goose://recipe?config="
                             </p>
-                            {field.state.meta.errors.length > 0 && (
+                            {(field.state.meta.errors as any[]).length > 0 && (
                               <p className="text-red-500 text-sm mt-1">
-                                {typeof field.state.meta.errors[0] === 'string'
-                                  ? field.state.meta.errors[0]
-                                  : field.state.meta.errors[0]?.message ||
-                                    String(field.state.meta.errors[0])}
+                                {typeof (field.state.meta.errors as any[])[0] === 'string'
+                                  ? (field.state.meta.errors as any[])[0]
+                                  : (field.state.meta.errors as any[])[0]?.message ||
+                                    String((field.state.meta.errors as any[])[0])}
                               </p>
                             )}
                           </div>
@@ -217,7 +218,7 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                     </div>
 
                     <importRecipeForm.Field name="recipeUploadFile">
-                      {(field) => {
+                      {(field: any) => {
                         const hasDeeplink = values.deeplink?.trim();
                         const isDisabled = !!hasDeeplink;
 
@@ -239,7 +240,7 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                                   handleRecipeUploadChange(e.target.files?.[0]);
                                 }}
                                 onBlur={field.handleBlur}
-                                className={`file:pt-1 ${field.state.meta.errors.length > 0 ? 'border-red-500' : ''} ${
+                                className={`file:pt-1 ${(field.state.meta.errors as any[]).length > 0 ? 'border-red-500' : ''} ${
                                   isDisabled ? 'cursor-not-allowed' : ''
                                 }`}
                               />
@@ -259,12 +260,12 @@ export default function ImportRecipeForm({ isOpen, onClose, onSuccess }: ImportR
                                 example
                               </button>
                             </div>
-                            {field.state.meta.errors.length > 0 && (
+                            {(field.state.meta.errors as any[]).length > 0 && (
                               <p className="text-red-500 text-sm mt-1">
-                                {typeof field.state.meta.errors[0] === 'string'
-                                  ? field.state.meta.errors[0]
-                                  : field.state.meta.errors[0]?.message ||
-                                    String(field.state.meta.errors[0])}
+                                {typeof (field.state.meta.errors as any[])[0] === 'string'
+                                  ? (field.state.meta.errors as any[])[0]
+                                  : (field.state.meta.errors as any[])[0]?.message ||
+                                    String((field.state.meta.errors as any[])[0])}
                               </p>
                             )}
                           </div>

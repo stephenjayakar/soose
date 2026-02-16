@@ -56,7 +56,11 @@ const FileInfo = ({ filePath, found }: { filePath: string; found: boolean }) => 
   </div>
 );
 
-const getGoosehintsFile = async (filePath: string) => await window.electron.readFile(filePath);
+const getGoosehintsFile = async (filePath: string): Promise<{file: string; error: string; found: boolean}> => {
+  const result = await window.electron.readFile(filePath);
+  if (!result) return { file: '', error: 'File not found', found: false };
+  return { file: result.content || '', error: result.error || '', found: result.found !== false };
+};
 
 interface GoosehintsModalProps {
   directory: string;

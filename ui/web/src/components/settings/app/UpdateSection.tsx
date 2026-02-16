@@ -57,7 +57,7 @@ export default function UpdateSection() {
     });
 
     // Listen for updater events
-    window.electron.onUpdaterEvent((event) => {
+    window.electron.onUpdaterEvent((event: any) => {
       console.log('Updater event:', event);
 
       switch (event.event) {
