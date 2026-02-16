@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
-import { installPlatformShims, getSooseConfig } from './platform';
+import { installPlatformShims, getSooseConfig, saveSooseConfig } from './platform';
 import { ConfigProvider } from './components/ConfigContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import SuspenseLoader from './suspense-loader';
@@ -15,6 +15,28 @@ const App = lazy(() => import('./App'));
 
 const TELEMETRY_CONFIG_KEY = 'GOOSE_TELEMETRY_ENABLED';
 
+/**
+ * Try to auto-detect a local Goose.app instance by scanning likely ports.
+ * Goose.app uses a random port each launch, so we try common ranges.
+ * Returns { serverUrl, secretKey } if found, null otherwise.
+ */
+async function tryAutoDetectLocalGoose(): Promise<{ serverUrl: string; port: number } | null> {
+  // The /status endpoint doesn't require auth, so we can probe for it.
+  // Goose.app typically picks a random high port (49152-65535 range).
+  // We can't know the secret key without `ps -E`, so auto-detection
+  // only helps verify reachability. User still needs to provide the secret.
+  
+  // Check if we have a previously-working config
+  const config = getSooseConfig();
+  if (config.serverUrl && config.secretKey) {
+    try {
+      const res = await fetch(config.serverUrl + '/status', { signal: AbortSignal.timeout(2000) });
+      if (res.ok) return { serverUrl: config.serverUrl, port: 0 };
+    } catch {}
+  }
+  return null;
+}
+
 (async () => {
   const config = getSooseConfig();
 
@@ -23,6 +45,20 @@ const TELEMETRY_CONFIG_KEY = 'GOOSE_TELEMETRY_ENABLED';
     ReactDOM.createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
         <ConnectionSetup />
+      </React.StrictMode>
+    );
+    return;
+  }
+
+  // Verify connection is still alive before booting the app
+  try {
+    const res = await fetch(config.serverUrl + '/status', { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error('status ' + res.status);
+  } catch (err) {
+    console.warn('[soose] Server not reachable, showing connection setup:', err);
+    ReactDOM.createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        <ConnectionSetup initialError={`Cannot reach ${config.serverUrl}: ${err}`} />
       </React.StrictMode>
     );
     return;
@@ -61,25 +97,53 @@ const TELEMETRY_CONFIG_KEY = 'GOOSE_TELEMETRY_ENABLED';
 })();
 
 // --- Connection Setup Screen ---
-function ConnectionSetup() {
+function ConnectionSetup({ initialError }: { initialError?: string }) {
   const [serverUrl, setServerUrl] = React.useState(
     getSooseConfig().serverUrl || 'http://127.0.0.1:3000'
   );
   const [secretKey, setSecretKey] = React.useState(getSooseConfig().secretKey || '');
   const [workingDir, setWorkingDir] = React.useState(getSooseConfig().workingDir || '~');
-  const [status, setStatus] = React.useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = React.useState('');
+  const [status, setStatus] = React.useState<'idle' | 'testing' | 'success' | 'error'>(
+    initialError ? 'error' : 'idle'
+  );
+  const [errorMsg, setErrorMsg] = React.useState(initialError || '');
 
   const testConnection = async () => {
     setStatus('testing');
     setErrorMsg('');
     try {
-      const res = await fetch(serverUrl + '/status');
-      if (res.ok) {
-        setStatus('success');
-      } else {
+      // First test /status (no auth required)
+      const statusRes = await fetch(serverUrl + '/status', { signal: AbortSignal.timeout(5000) });
+      if (!statusRes.ok) {
         setStatus('error');
-        setErrorMsg('Server returned ' + res.status);
+        setErrorMsg('Server returned ' + statusRes.status);
+        return;
+      }
+      // Then test auth by reading config
+      if (secretKey) {
+        const configRes = await fetch(serverUrl + '/config/read', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Secret-Key': secretKey,
+          },
+          body: JSON.stringify({ key: 'GOOSE_PROVIDER', is_secret: false }),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (configRes.status === 401) {
+          setStatus('error');
+          setErrorMsg('Server reachable but secret key is wrong (401 Unauthorized)');
+          return;
+        }
+        const data = await configRes.json();
+        setStatus('success');
+        setErrorMsg('');
+        if (data) {
+          setErrorMsg(`✓ Connected! Provider: ${data}`);
+        }
+      } else {
+        setStatus('success');
+        setErrorMsg('Server reachable (enter secret key to authenticate)');
       }
     } catch (e) {
       setStatus('error');
@@ -88,10 +152,12 @@ function ConnectionSetup() {
   };
 
   const handleConnect = () => {
-    localStorage.setItem(
-      'soose_config',
-      JSON.stringify({ serverUrl, secretKey, workingDir })
-    );
+    saveSooseConfig({ serverUrl, secretKey, workingDir });
+    window.location.reload();
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem('soose_config');
     window.location.reload();
   };
 
@@ -120,13 +186,13 @@ function ConnectionSetup() {
         background: '#16213e',
         borderRadius: '12px',
         padding: '40px',
-        maxWidth: '480px',
+        maxWidth: '520px',
         width: '100%',
         boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
       }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: '28px' }}>Soose</h1>
+        <h1 style={{ margin: '0 0 8px', fontSize: '28px' }}>🪿 Soose</h1>
         <p style={{ margin: '0 0 24px', opacity: 0.7, fontSize: '14px' }}>
-          Connect to a remote Goose server
+          Connect to a Goose server (goosed)
         </p>
 
         <div style={{ marginBottom: '16px' }}>
@@ -144,7 +210,7 @@ function ConnectionSetup() {
 
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', opacity: 0.8 }}>
-            Secret Key (GOOSE_SERVER__SECRET_KEY)
+            Secret Key (X-Secret-Key header)
           </label>
           <input
             type="password"
@@ -163,11 +229,11 @@ function ConnectionSetup() {
             type="text"
             value={workingDir}
             onChange={(e) => setWorkingDir(e.target.value)}
-            placeholder="~ or /home/user/projects"
+            placeholder="/home/user/projects"
             style={inputStyle}
           />
           <p style={{ margin: '4px 0 0', fontSize: '12px', opacity: 0.6 }}>
-            This must be a path on the server, not your local machine.
+            Path on the <strong>server</strong>, not your local machine.
           </p>
         </div>
 
@@ -185,7 +251,7 @@ function ConnectionSetup() {
               fontSize: '14px',
             }}
           >
-            {status === 'testing' ? 'Testing...' : 'Test'}
+            {status === 'testing' ? 'Testing...' : 'Test Connection'}
           </button>
           <button
             onClick={handleConnect}
@@ -203,11 +269,27 @@ function ConnectionSetup() {
           >
             Connect
           </button>
+          {initialError && (
+            <button
+              onClick={handleDisconnect}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '6px',
+                border: '1px solid #4a2020',
+                background: 'transparent',
+                color: '#f87171',
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Reset
+            </button>
+          )}
         </div>
 
         {status === 'success' && (
           <p style={{ marginTop: '12px', color: '#4ade80', fontSize: '13px' }}>
-            Connected to server successfully
+            {errorMsg || 'Connected to server successfully'}
           </p>
         )}
         {status === 'error' && (
@@ -218,16 +300,33 @@ function ConnectionSetup() {
 
         <div style={{
           marginTop: '24px',
-          padding: '12px',
+          padding: '16px',
           background: '#0f0f23',
-          borderRadius: '6px',
+          borderRadius: '8px',
           fontSize: '12px',
-          opacity: 0.7,
+          lineHeight: '1.6',
         }}>
-          <strong>Server setup:</strong> Run on your work machine:
-          <pre style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
-{'GOOSE_HOST=0.0.0.0 GOOSE_PORT=3000 GOOSE_SERVER__SECRET_KEY="secret" goosed agent'}
-          </pre>
+          <strong style={{ fontSize: '13px' }}>How to find your connection info:</strong>
+          
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ opacity: 0.8, marginBottom: '4px' }}>
+              <strong>🖥️ Local Goose.app</strong> — find port &amp; secret from the running process:
+            </div>
+            <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'monospace', opacity: 0.7, fontSize: '11px' }}>
+{`ps -E $(pgrep -f "goosed agent") | tr ' ' '\n' | grep -E "GOOSE_PORT|SECRET"`}
+            </pre>
+          </div>
+
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ opacity: 0.8, marginBottom: '4px' }}>
+              <strong>🌐 Remote server</strong> — start goosed with explicit config:
+            </div>
+            <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'monospace', opacity: 0.7, fontSize: '11px' }}>
+{'GOOSE_HOST=0.0.0.0 GOOSE_PORT=3000 \\
+GOOSE_SERVER__SECRET_KEY="your-secret" \\
+goosed agent'}
+            </pre>
+          </div>
         </div>
       </div>
     </div>

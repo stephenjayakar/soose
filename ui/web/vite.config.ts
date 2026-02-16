@@ -19,7 +19,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Proxy API calls to goosed server to avoid CORS issues during dev
+    // Note: Soose connects directly to goosed (no proxy needed)
+    // because the API client uses the full serverUrl from config.
+    // The proxy below is only for convenience during dev if you 
+    // want to use relative /api/ paths.
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',
