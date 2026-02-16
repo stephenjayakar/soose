@@ -74,3 +74,5 @@ result
 # Goose self-test artifacts
 gooseselftest/
 .tasks/
+ui/web/node_modules/
+ui/web/dist/
